@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CHUDASAUR AI</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #060a06;
+    color: #d8e8d8;
+    font-family: "SF Mono", Menlo, monospace;
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+  }
+  header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 14px 16px;
+    border-bottom: 1px solid #1a2e1a;
+    letter-spacing: 3px;
+  }
+  .logo { font-weight: bold; }
+  .logo span { color: #ff9f2e; }
+  .status { font-size: 11px; color: #4dff88; display: flex; align-items: center; gap: 6px; }
+  .dot { width: 8px; height: 8px; background: #4dff88; border-radius: 50%; box-shadow: 0 0 8px #4dff88; }
+  main { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+  .msg { max-width: 90%; padding: 12px 14px; border-radius: 12px; line-height: 1.5; font-size: 14px; }
+  .system { align-self: center; color: #6a8a6a; font-size: 12px; letter-spacing: 2px; border: 1px solid #1a2e1a; }
+  .user { align-self: flex-end; background: #2a1208; border: 1px solid #ff9f2e; color: #ffd9ae; border-bottom-right-radius: 2px; white-space: pre-wrap; }
+  .dino { align-self: flex-start; background: #0d1a0d; border: 1px solid #2e5c2e; color: #c8f0c8; border-bottom-left-radius: 2px; }
+  .dino.error { border-color: #ff4d4d; color: #ffb3b3; }
+  .who { font-size: 10px; letter-spacing: 2px; color: #557755; margin-bottom: 6px; }
+  .prose { white-space: pre-wrap; word-wrap: break-word; margin-bottom: 6px; }
+  .codeblock { margin: 10px 0; border: 1px solid #2e5c2e; border-radius: 10px; overflow: hidden; background: #030803; }
+  .codebar {
+    display: flex; justify-content: space-between; align-items: center;
+    background: #0a160a; padding: 8px 12px;
+    font-size: 11px; letter-spacing: 2px; color: #7aaa7a;
+    border-bottom: 1px solid #1a2e1a;
+  }
+  .codebar button {
+    background: #1c3a1c; color: #7dff9f; border: 1px solid #2e5c2e;
+    border-radius: 6px; padding: 7px 14px; font-family: inherit;
+    font-size: 11px; letter-spacing: 2px; cursor: pointer; min-height: 32px;
+  }
+  .codebar button:active { background: #2e5c2e; }
+  .codeblock pre {
+    margin: 0; padding: 12px;
+    overflow-x: auto;
+    font-size: 12.5px; line-height: 1.45;
+    color: #b8e8b8;
+    white-space: pre;
+    -webkit-user-select: text; user-select: text;
+  }
+  footer { padding: 12px; border-top: 1px solid #1a2e1a; }
+  form { display: flex; gap: 8px; }
+  input {
+    flex: 1; background: #0a120a; border: 1px solid #2e5c2e; border-radius: 10px;
+    padding: 13px; color: #d8e8d8; font-family: inherit; font-size: 14px; outline: none;
+  }
+  input:focus { border-color: #4dff88; }
+  button.send {
+    background: #ff9f2e; border: none; border-radius: 10px; width: 50px;
+    color: #1a0e00; font-size: 18px; cursor: pointer;
+  }
+</style>
+</head>
+<body>
+  <header>
+    <div class="logo">🦖 CHUDASAUR <span>AI</span></div>
+    <div class="status"><span class="dot"></span>ONLINE</div>
+  </header>
+  <main id="chat">
+    <div class="msg system">// CHUDASAUR AI INITIALISED — SPEAK, SMALL MAMMAL</div>
+  </main>
+  <footer>
+    <form id="form">
+      <input id="input" placeholder="Command the beast..." autocomplete="off">
+      <button class="send" type="submit">➤</button>
+    </form>
+  </footer>
+<script>
+  const API_URL = "https://YOUR-PROJECT.vercel.app/api/chuda"; // <-- CHANGE THIS
+
+  const chat = document.getElementById("chat");
+  const form = document.getElementById("form");
+  const input = document.getElementById("input");
+  const history = [];
+
+  function makeMsg(cls, who) {
+    const d = document.createElement("div");
+    d.className = "msg " + cls;
+    d.innerHTML = '<div class="who">' + who + "</div>";
+    chat.appendChild(d);
+    chat.scrollTop = chat.scrollHeight;
+    return d;
+  }
+
+  function makeCodeBlock(lang, code) {
+    const wrap = document.createElement("div");
+    wrap.className = "codeblock";
+
+    const bar = document.createElement("div");
+    bar.className = "codebar";
+    const label = document.createElement("span");
+    label.textContent = lang.toUpperCase() || "CODE";
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.textContent = "COPY";
+    btn.onclick = async () => {
+      try {
+        await navigator.clipboard.writeText(code);
+      } catch (e) {
+        const ta = document.createElement("textarea");
+        ta.value = code;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        ta.remove();
+      }
+      btn.textContent = "COPIED ✓";
+      setTimeout(() => (btn.textContent = "COPY"), 1500);
+    };
+    bar.appendChild(label);
+    bar.appendChild(btn);
+
+    const pre = document.createElement("pre");
+    pre.textContent = code; // plain text: exact characters, fully selectable
+
+    wrap.appendChild(bar);
+    wrap.appendChild(pre);
+    return wrap;
+  }
+
+  // Splits reply on ``` fences: prose becomes text, code becomes a copyable block
+  function renderReply(container, text) {
+    const parts = text.split("```");
+    for (let i = 0; i < parts.length; i++) {
+      if (i % 2 === 1) {
+        let block = parts[i];
+        let lang = "";
+        const nl = block.indexOf("\n");
+        if (nl !== -1) {
+          const first = block.slice(0, nl).trim();
+          if (/^[a-zA-Z0-9+#._-]{0,15}$/.test(first)) {
+            lang = first;
+            block = block.slice(nl + 1);
+          }
+        }
+        container.appendChild(makeCodeBlock(lang, block.replace(/\n+$/, "")));
+      } else if (parts[i].trim()) {
+        const p = document.createElement("div");
+        p.className = "prose";
+        p.textContent = parts[i].trim();
+        container.appendChild(p);
+      }
+    }
+  }
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const text = input.value.trim();
+    if (!text) return;
+    input.value = "";
+    makeMsg("user", "YOU").appendChild(document.createTextNode(text));
+    const thinking = makeMsg("dino", "CHUDASAUR");
+    thinking.appendChild(document.createTextNode("..."));
+
+    try {
+      history.push({ role: "user", content: text });
+      const r = await fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages: history })
+      });
+      const data = await r.json();
+
+      thinking.innerHTML = '<div class="who">CHUDASAUR</div>';
+      if (data.reply) {
+        history.push({ role: "assistant", content: data.reply });
+        renderReply(thinking, data.reply);
+      } else {
+        thinking.classList.add("error");
+        const p = document.createElement("div");
+        p.className = "prose";
+        p.textContent = "ERROR: " + (data.error || "no response");
+        thinking.appendChild(p);
+      }
+    } catch (err) {
+      thinking.classList.add("error");
+      thinking.innerHTML = '<div class="who">CHUDASAUR</div>';
+      const p = document.createElement("div");
+      p.className = "prose";
+      p.textContent = "CONNECTION FAILED: " + err.message;
+      thinking.appendChild(p);
+    }
+    chat.scrollTop = chat.scrollHeight;
+  });
+</script>
+</body>
+</html>
